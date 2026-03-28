@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum SeminarStatus {
+  UPCOMING
+  ONGOING
+  FINISHED
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String
+  phone       String?
+  role        Role     @default(USER)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // RELATIONS
+  articles       Article[]      @relation("UserArticles")
+  documents      Document[]     @relation("UserDocuments")
+  seminars       Seminar[]      @relation("UserSeminars")
+  registrations  Registration[] @relation("UserRegistrations")
+  certificates   Certificate[]  @relation("UserCertificates")
+  logs           ActivityLog[]  @relation("UserLogs")
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  // RELATIONS
+  articles  Article[] @relation("CategoryArticles")
+}
+
+model Article {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  content     String
+  thumbnail   String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  authorId    String
+  categoryId  String?
+
+  // RELATIONS
+  author      User      @relation("UserArticles", fields: [authorId], references: [id])
+  category    Category? @relation("CategoryArticles", fields: [categoryId], references: [id])
+
+  @@index([slug])
+  @@index([createdAt])
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  title        String
+  fileUrl      String
+  createdAt    DateTime @default(now())
+  deletedAt    DateTime?
+
+  uploadedById String
+
+  // RELATIONS
+  uploadedBy   User @relation("UserDocuments", fields: [uploadedById], references: [id])
+
+  @@index([createdAt])
+}
+
+model Seminar {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  banner      String?
+  location    String?
+  startDate   DateTime
+  endDate     DateTime
+  quota       Int
+  status      SeminarStatus @default(UPCOMING)
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  createdById String
+
+  // RELATIONS
+  createdBy     User           @relation("UserSeminars", fields: [createdById], references: [id])
+  registrations Registration[] @relation("SeminarRegistrations")
+  certificates  Certificate[]  @relation("SeminarCertificates")
+
+  @@index([startDate])
+  @@index([status])
+}
+
+model Registration {
+  id          String   @id @default(uuid())
+  userId      String
+  seminarId   String
+  status      RegistrationStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+
+  // RELATIONS
+  user        User    @relation("UserRegistrations", fields: [userId], references: [id])
+  seminar     Seminar @relation("SeminarRegistrations", fields: [seminarId], references: [id])
+
+  @@unique([userId, seminarId])
+  @@index([createdAt])
+}
+
+model Certificate {
+  id         String   @id @default(uuid())
+  userId     String
+  seminarId  String
+  fileUrl    String
+  issuedAt   DateTime @default(now())
+
+  // RELATIONS
+  user       User    @relation("UserCertificates", fields: [userId], references: [id])
+  seminar    Seminar @relation("SeminarCertificates", fields: [seminarId], references: [id])
+
+  @@index([issuedAt])
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+
+  // RELATIONS
+  user        User @relation("UserLogs", fields: [userId], references: [id])
+
+  @@index([createdAt])
+}
